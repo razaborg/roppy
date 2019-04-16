@@ -30,9 +30,9 @@ def backward_disas(data, offset, n, section_offset):
         instructions = []
         # --- with pydis
         try:
-            for inst in pydis.decode(bytecode):
-                address = inst.address + (offset-i) + section_offset
-                inst._instruction.instructionAddress = address 
+
+            address = (offset-i) + section_offset
+            for inst in pydis.decode(bytecode, address=address):
                 instructions.append(inst)
         except Exception:
             continue
