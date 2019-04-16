@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 from pydis import Instruction
-
+import re
 # this is the list of the invalid mnemonics which *SHALL NOT*
 # be present in any gadget (otherwise dropped)
-REJECTED_MNEMONICS = ['ret', 'call']
+REJECTED_MNEMONICS = ['hlt']
 # this is the list of valids mnemonics which *MUST*
 # be present at the end of each gadget (otherwise dropped)
-FINISHER_MNEMONICS = ['ret', 'call']
+FINISHER_MNEMONICS = ['ret', 'call', 'jmp']
+
 
 
 class InvalidGadget(Exception):
@@ -16,17 +17,19 @@ class InvalidGadget(Exception):
 
 class Gadget():
     
-    def __init__(self, list_of_instructions, maxlen=8):
+    def __init__(self, list_of_instructions, maxlen=8, symtab=None):
         '''
         This method creates a new gadget
+        @list_of_instructions : a list of Instruction() objects
+        @maxlen: the maximum number of instructions allowed for a unique gadget
+        @symtab: a symbol table to try to resolve symbols in the gadgets (default to None, optional)
         '''
+        self.symtab = symtab
         # proceed to some checks
-        self._check_instructions(list_of_instructions, maxlen)
-        # officially create the gadget
-        self.instructions = list_of_instructions
+        self.instructions = self._check_and_load_instructions(list_of_instructions, maxlen)
 
-    @staticmethod
-    def _check_instructions(instructions, maxlen):
+    
+    def _check_and_load_instructions(self, instructions, maxlen):
         '''
         This method checks that the list of instructions provided are valid.
         '''
@@ -35,8 +38,9 @@ class Gadget():
         if len(instructions) > maxlen:
             raise InvalidGadget('Gadget is too long. maxlen is set to {}'.format(maxlen))
 
+        # this regex gonna be used to extract addresses and try to resolve symbols
         n = 0
-        for inst in instructions[0:-1]:
+        for inst in instructions:
             # check for the type of the instructions
             if not isinstance(inst, Instruction):
                 raise InvalidGadget('Invalid type of Instructions')
@@ -48,13 +52,21 @@ class Gadget():
             # last instruction checks
             if n == (len(instructions)-1):
                 if inst.mnemonic not in FINISHER_MNEMONICS:
-                    raise Invalidgadget('Gadget must end with one of the following mnemonics : {}'\
-                            .format(FINISHER_GADGETS))
-            # check for the validity of instructions in the gadget
-            if inst.mnemonic in REJECTED_MNEMONICS:
-                raise InvalidGadget('Gadget must not contains any of the following mnemonics before\
-                        the end : {}'.format(REJECTED_MNEMONICS))
+                    raise InvalidGadget('Gadget must end with one of the following mnemonics : {}'\
+                            .format(FINISHER_MNEMONICS))
+            else:
+                # if a ret instruction is found in the middle of the gadget, we cut it
+                if inst.mnemonic == 'ret':
+                    return instructions[:n+1]
+                # if a forbidden instruction is found, we drop the gadget
+                if inst.mnemonic in REJECTED_MNEMONICS:
+                    raise InvalidGadget('Gadget must not contains any of the following \
+                            mnemonics before the end : {}'.format(REJECTED_MNEMONICS))
+            
+                                            
             n += 1
+        
+        return instructions
 
     @property
     def size(self):
@@ -62,7 +74,7 @@ class Gadget():
  
     @property
     def address(self):
-        return '0x{:08x}'.format(self.instructions[0].address)
+        return '0x{:016x}'.format(self.instructions[0].address)
     
     def __getitem__(self, key):
         return self.instructions[key]
@@ -78,6 +90,11 @@ class Gadget():
         for inst in self.instructions:
             out += inst.to_string()
             out += ' ; '
+        
+        if self.symtab:
+            for key in self.symtab.keys():
+                txt_addr = '0x' + '{:016x}'.format(key).upper()
+                out = out.replace(txt_addr, '<'+self.symtab[key]+'>') 
         return out[:-3]
 
     def has_mnemonic(self, query):
@@ -102,7 +119,3 @@ class Gadget():
 
 
 
-
-if __name__ == '__main__':
-    g = Gadget([Instruction(pop), Instruction(ret), Instruction(nop), Instruction(endbr64)])
-    print(g)
