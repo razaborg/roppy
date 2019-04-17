@@ -18,7 +18,7 @@ class InvalidGadget(Exception):
 
 class Gadget():
     
-    def __init__(self, instructions=(), maxlen=8, symtab=None):
+    def __init__(self, instructions=(), maxlen=8, symtab=None, addr_width=pydis.MachineMode.Long64):
         '''
         This method creates a new gadget
         @list_of_instructions : a list of Instruction() objects
@@ -26,6 +26,7 @@ class Gadget():
         @symtab: a symbol table to try to resolve symbols in the gadgets (default to None, optional)
         '''
         self.symtab = symtab
+        self.addr_width = addr_width
         # proceed to some checks
         self.instructions = tuple(map(InstructionWrapper, self._check_and_load_instructions(instructions, maxlen)))
 
@@ -71,7 +72,10 @@ class Gadget():
  
     @property
     def address(self):
-        return '0x{:016x}'.format(self.instructions[0].address)
+        if self.addr_width == 64:
+            return '0x{:016x}'.format(self.instructions[0].address)
+        elif self.addr_width == 32:
+            return '0x{:08x}'.format(self.instructions[0].address)
     
     def __getitem__(self, key):
         return self.instructions[key]

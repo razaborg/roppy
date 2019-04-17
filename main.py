@@ -17,7 +17,7 @@ def findall_ret(data):
         last_ret = x
     
 
-def backward_disas(data, offset, n, section_offset, maxlen=8, symtab=None, mnemonic_query=None, register_query=None):
+def backward_disas(data, offset, n, section_offset, maxlen=8, symtab=None, mnemonic_query=None, register_query=None, follow=False, mode=pydis.MachineMode.Long64, address_width=pydis.AddressWidth.Width64):
     '''
     This function dissasemble a bytecode which ends at a specific @offset.
     The @n parameter gives how many bytes back must be taken at max.
@@ -31,10 +31,10 @@ def backward_disas(data, offset, n, section_offset, maxlen=8, symtab=None, mnemo
         # --- with pydis
         try:
             address = (offset-i) + section_offset
-            for inst in pydis.decode(bytecode, address=address):
+            for inst in pydis.decode(bytecode, address=address, mode=mode, address_width=address_width):
                 instructions.append(inst)
             
-            g = Gadget(tuple(instructions), maxlen, symtab)
+            g = Gadget(tuple(instructions), maxlen, symtab, addr_width=address_width)
             
             
             if mnemonic_query is not None:
@@ -46,6 +46,7 @@ def backward_disas(data, offset, n, section_offset, maxlen=8, symtab=None, mnemo
                     del g
                     continue
             gadgets.append(g)
+            print('{} : {}'.format(g.address, g.to_string()))
         except Exception:
             continue
         
@@ -60,6 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--max-len', type=int, help='Maximum lenght of gadgets found. (default to 8)', default=8)
     parser.add_argument('-b', '--bytes-backward', type=int, default=30, help='Number of bytes to browse backwards each time a ret instruction if found. (default to 30)')
     parser.add_argument('-s', '--symbols', action='store_true', default=False, help='Try to resolve symbols (prototypal only .symtab for now).')
+    parser.add_argument('-f', '--follow', action='store_true', default=False, help='Immediately prints gadgets at finding. Useful for reeeally big binaries.')
     args = parser.parse_args()
 
 
@@ -78,7 +80,15 @@ if __name__ == '__main__':
                             })
         else:
             symtab = None
-   
+    
+    
+    if elf.elfclass == 32:
+        machine_mode = pydis.MachineMode.LongCompat32
+    elif elf.elfclass == 64 : 
+        machine_mode = pydis.MachineMode.Long64
+    else:
+        raise('Unsupported ELF mode')
+
     # look into the .text section to find all interesting ending-gadgets opcodes
     ret_offsets = findall_ret(text_data)
     
@@ -89,13 +99,15 @@ if __name__ == '__main__':
         gadget = set(backward_disas(text_data, ret, args.bytes_backward, \
                 section_offset=text_section.header.sh_addr, \
                 maxlen=args.max_len, symtab=symtab, \
-                register_query=args.register, mnemonic_query=args.mnemonic))
+                register_query=args.register, mnemonic_query=args.mnemonic, follow=args.follow, \
+                mode=machine_mode, address_width=elf.elfclass))
         # the global gadget set is update to conserve all the elements but keep only
         # the unique gadgets
         gadgets.update(gadget)
     
-    # and after all of this we have a complete set of unique gadgets :-) 
-    for gadget in gadgets:                
-        print('{} : {}'.format(gadget.address, gadget.to_string()))
+    if not args.follow: 
+        # and after all of this we have a complete set of unique gadgets :-) 
+        for gadget in gadgets:                
+            print('{} : {}'.format(gadget.address, gadget.to_string()))
     print()
     print('{} unique gadgets found.'.format(len(gadgets)))
