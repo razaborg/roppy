@@ -2,6 +2,11 @@
 
 Roppy is an home-made script based on the python bindings ([pydis](https://github.com/novogen/pydis)) of the [zydis disassembler](https://github.com/zyantific/zydis).
 
+### Warnings
+
+**ONLY TESTED ON x64 ARCH FOR NOW**
+
+**IN DEVELOPMENT**
 
 ## Why ?
 
