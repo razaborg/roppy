@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from pydis import Instruction
+import pydis
+from Instruction import InstructionWrapper
 import re
 # this is the list of the invalid mnemonics which *SHALL NOT*
 # be present in any gadget (otherwise dropped)
@@ -17,7 +18,7 @@ class InvalidGadget(Exception):
 
 class Gadget():
     
-    def __init__(self, list_of_instructions, maxlen=8, symtab=None):
+    def __init__(self, instructions=tuple(), maxlen=8, symtab=None):
         '''
         This method creates a new gadget
         @list_of_instructions : a list of Instruction() objects
@@ -26,7 +27,7 @@ class Gadget():
         '''
         self.symtab = symtab
         # proceed to some checks
-        self.instructions = self._check_and_load_instructions(list_of_instructions, maxlen)
+        self.instructions = tuple(map(InstructionWrapper, self._check_and_load_instructions(instructions, maxlen)))
 
     
     def _check_and_load_instructions(self, instructions, maxlen):
@@ -41,10 +42,6 @@ class Gadget():
         # this regex gonna be used to extract addresses and try to resolve symbols
         n = 0
         for inst in instructions:
-            # check for the type of the instructions
-            if not isinstance(inst, Instruction):
-                raise InvalidGadget('Invalid type of Instructions')
-           
             # first instruction checks
             if n == 0:
                 if inst.mnemonic == 'nop':
@@ -116,6 +113,12 @@ class Gadget():
             if inst.to_string().find(register) > 0:
                 return True
         return False
+    
+    # We change the __hash__ method to compare gadgets with the str() representation
+    # of the instructions they embed
+    def __hash__(self):
+        return sum(hash(inst) for inst in self.instructions)
 
-
+    def __eq__(self, other):
+        return self.__repr__() == other.__repr__() 
 
