@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 ```
 usage: main.py [-h] [-m MNEMONIC] [-r REGISTER] [-l MAX_LEN]
-               [-b BYTES_BACKWARD] [-s]
+               [-b BYTES_BACKWARD] [-s] [-f]
                file
 
 Look for interesting gadgets inside a binary.
@@ -47,6 +47,8 @@ optional arguments:
                         instruction if found. (default to 30)
   -s, --symbols         Try to resolve symbols (prototypal only .symtab for
                         now).
+  -f, --follow          Immediately prints gadgets at finding. Useful for
+                        reeeally big binaries.
 ```
 
 
