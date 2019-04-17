@@ -18,7 +18,7 @@ class InvalidGadget(Exception):
 
 class Gadget():
     
-    def __init__(self, instructions=tuple(), maxlen=8, symtab=None):
+    def __init__(self, instructions=(), maxlen=8, symtab=None):
         '''
         This method creates a new gadget
         @list_of_instructions : a list of Instruction() objects
@@ -53,7 +53,7 @@ class Gadget():
                             .format(FINISHER_MNEMONICS))
             else:
                 # if a ret instruction is found in the middle of the gadget, we cut it
-                if inst.mnemonic == 'ret':
+                if inst.mnemonic in FINISHER_MNEMONICS:
                     return instructions[:n+1]
                 # if a forbidden instruction is found, we drop the gadget
                 if inst.mnemonic in REJECTED_MNEMONICS:
